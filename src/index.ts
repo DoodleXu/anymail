@@ -80,13 +80,21 @@ function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
-      "content-type": "application/json; charset=utf-8"
-    }
+      "content-type": "application/json; charset=utf-8",
+    },
   });
 }
 
 export default {
-  async email(message: { to?: string | string[]; headers?: Headers; raw?: ReadableStream }, env: Env, ctx: ExecutionContext) {
+  async email(
+    message: {
+      to?: string | string[];
+      headers?: Headers;
+      raw?: ReadableStream;
+    },
+    env: Env,
+    ctx: ExecutionContext
+  ) {
     const recipients = getRecipients(message);
     if (recipients.length === 0) {
       return;
@@ -101,7 +109,9 @@ export default {
 
     const ttlSeconds = normalizeTtlSeconds(env.CODE_TTL_SECONDS);
     const tasks = recipients.map((recipient) =>
-      env.ANYMAIL_CODES.put(buildKey(recipient), code, { expirationTtl: ttlSeconds })
+      env.ANYMAIL_CODES.put(buildKey(recipient), code, {
+        expirationTtl: ttlSeconds,
+      })
     );
     ctx.waitUntil(Promise.all(tasks));
   },
@@ -127,13 +137,16 @@ export default {
           return json({ error: "invalid email" }, 400);
         }
 
-        const code = await env.ANYMAIL_CODES.get(buildKey(email));
+        const key = buildKey(email);
+        const code = await env.ANYMAIL_CODES.get(key);
+
         if (!code) {
           return json({ code: "" }, 404);
         }
 
+        await env.ANYMAIL_CODES.delete(key);
         return json({ code });
       }
     }
-  }
+  },
 };
